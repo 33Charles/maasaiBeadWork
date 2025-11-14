@@ -18,7 +18,8 @@ export function Navbar() {
 
   const cartCount = 1;
   const isLoggedIn = user;
-  const userName = "Amina";
+  const userName = user?.username
+  
 
   const navItems = [
     { label: "Home", href: "/", highlight: true },
@@ -44,7 +45,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* ── Desktop Nav (Center) ── */}
+
         <nav className="hidden md:flex items-center space-x-6">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
@@ -110,8 +111,6 @@ export function Navbar() {
             </div>
           )}
 
-
-
           {isLoggedIn && (
             <Avatar className="hidden md:block h-9 w-9 hover:cursor-pointer transition-all duration-200 hover:scale-105" onClick={() => navigate("/profile")}>
               <AvatarImage src="/avatar.jpg" alt={userName} />
@@ -133,8 +132,7 @@ export function Navbar() {
           </Button>
           )}
 
-          
-
+      
           {/* Mobile: Menu Button */}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild className="md:hidden">

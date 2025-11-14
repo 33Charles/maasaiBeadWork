@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import axiosInstance from "@/apis/axios";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,48 +43,45 @@ const passwordSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
-// ORIGINAL mockUser had a full name string; we extract parts for firstName/lastName/username
-const baseMockUser = {
-  id: 1,
-  name: "Jane Doe",
-  email: "jane@example.com",
-  phone: "+254 712 345 678",
-  address: "Nairobi, Kenya",
-  avatar: "/avatar.jpg",
-  joinDate: "March 2024",
-};
-
-function splitName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
-  const firstName = parts[0] ?? "";
-  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
-  const username =
-    (firstName + (lastName ? "." + lastName.split(" ")[0] : "")).toLowerCase().replace(/\s+/g, "");
-  return { firstName, lastName, username };
-}
-
 export default function UserProfilePage() {
+  const storedUser = localStorage.getItem("user");
+  const userDetails = storedUser ? JSON.parse(storedUser) : null;
+
+  const [user, setUser] = useState({
+    id: userDetails.id,
+    firstName: capitalize(userDetails.firstName),
+    lastName: capitalize(userDetails.lastName),
+    username: userDetails.username,
+    email: userDetails.email,
+    phone: userDetails.phoneNo,
+    address: userDetails.location,
+    avatar: userDetails.profileImageUrl,
+    joinDate: formatShortDate(userDetails.createdAt),
+  });
+
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(baseMockUser.avatar);
+  const [avatarUrl, setAvatarUrl] = useState(user.avatar);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // derive initial firstName/lastName/username from baseMockUser.name
-  const nameParts = splitName(baseMockUser.name);
+  console.log(userDetails);
+
+  function capitalize(str: string) {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+
+  function formatShortDate(isoDate: any) {
+    const d = new Date(isoDate);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 
   // maintain local user state so UI updates after successful profile update
-  const [user, setUser] = useState({
-    id: baseMockUser.id,
-    firstName: nameParts.firstName,
-    lastName: nameParts.lastName,
-    username: nameParts.username,
-    email: baseMockUser.email,
-    phone: baseMockUser.phone,
-    address: baseMockUser.address,
-    avatar: baseMockUser.avatar,
-    joinDate: baseMockUser.joinDate,
-  });
 
   // --- Profile Form (react-hook-form using the split fields) ---
   const {
@@ -115,7 +113,8 @@ export default function UserProfilePage() {
 
   // --- Mutations ---
   const updateProfileMutation = useMutation({
-    mutationFn: (data: ProfileFormData) => axiosInstance.put("/api/user/profile", data),
+    mutationFn: (data: ProfileFormData) =>
+      axiosInstance.put("/api/user/profile", data),
     onSuccess: (res) => {
       // If backend returns updated user, prefer that; otherwise update local state from submitted data
       const responseData = (res && (res.data ?? res)) as any;
@@ -123,20 +122,15 @@ export default function UserProfilePage() {
 
       if (updated) {
         // If backend returns user object
-        const firstName = updated.firstName ?? updated.name?.split(" ")[0] ?? user.firstName;
-        const lastName =
-          updated.lastName ??
-          (updated.name ? updated.name.split(" ").slice(1).join(" ") : user.lastName);
-        const username = updated.username ?? user.username;
 
         setUser((prev) => ({
           ...prev,
-          firstName,
-          lastName,
-          username,
+          firstName: updated.firstName ?? prev.firstName,
+          lastName: updated.lastName ?? prev.lastName,
+          username: updated.userName ?? prev.username,
           email: updated.email ?? prev.email,
-          phone: updated.phone ?? prev.phone,
-          address: updated.address ?? prev.address,
+          phone: updated.phoneNo ?? prev.phone,
+          address: updated.location ?? prev.address,
         }));
       } else {
         // fallback: update from form values stored in mutation variables
@@ -161,14 +155,25 @@ export default function UserProfilePage() {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: (data: PasswordFormData) => axiosInstance.post("/api/user/change-password", data),
-    onSuccess: () => {
-      toast.success("Password updated successfully!");
+    mutationKey: ["change-user-password"],
+    mutationFn: async (data: PasswordFormData) => {
+      const response = await axiosInstance.patch(
+        "/api/auth/change-password",
+        data
+      );
+      return response.data;
+    },
+    onError: (error) => {
+      if (isAxiosError(error)) {
+        toast.error(error.response?.data?.message);
+      } else {
+        toast.error("Password update failed. Please try again.");
+      }
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || "Password updated successfully!");
       resetPasswordForm();
       setShowPasswordModal(false);
-    },
-    onError: () => {
-      toast.error("Password update failed.");
     },
   });
 
@@ -215,15 +220,21 @@ export default function UserProfilePage() {
   };
 
   // compute display full name from state
-  const displayName = `${user.firstName}${user.lastName ? " " + user.lastName : ""}`;
-  const avatarInitials = `${(user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")}`.toUpperCase();
+  const displayName = `${user.firstName}${
+    user.lastName ? " " + user.lastName : ""
+  }`;
+  const avatarInitials = `${
+    (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")
+  }`.toUpperCase();
 
   return (
     <div className="min-h-screen bg-background py-8 relative">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="mb-10 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-2">My Profile</h1>
-          <p className="text-muted-foreground">Manage your account and view orders</p>
+          <p className="text-muted-foreground">
+            Manage your account and view orders
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -234,8 +245,8 @@ export default function UserProfilePage() {
                 <div className="relative inline-block">
                   <Avatar className="h-32 w-32 mx-auto mb-4 ring-4 ring-background">
                     <AvatarImage src={user.avatar ?? avatarUrl} />
-                    <AvatarFallback className="text-3xl bg-primary/10">
-                      {avatarInitials || "JD"}
+                    <AvatarFallback className="text-5xl font-extrabold bg-primary/10">
+                      {avatarInitials || "U"}
                     </AvatarFallback>
                   </Avatar>
 
@@ -299,7 +310,7 @@ export default function UserProfilePage() {
                     <div className="flex justify-between items-center">
                       <CardTitle>Personal Information</CardTitle>
                       <Button
-                        variant={isEditing ? "outline" : "ghost"}
+                        variant={"outline"}
                         size="sm"
                         onClick={() => {
                           setIsEditing((s) => {
@@ -326,13 +337,18 @@ export default function UserProfilePage() {
 
                   <CardContent>
                     {isEditing ? (
-                      <form onSubmit={handleSubmit(onSubmitProfile)} className="space-y-6">
+                      <form
+                        onSubmit={handleSubmit(onSubmitProfile)}
+                        className="space-y-6"
+                      >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <Label htmlFor="firstName">First Name</Label>
                             <Input id="firstName" {...register("firstName")} />
                             {errors.firstName && (
-                              <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                              <p className="text-sm text-destructive">
+                                {errors.firstName.message}
+                              </p>
                             )}
                           </div>
 
@@ -340,7 +356,9 @@ export default function UserProfilePage() {
                             <Label htmlFor="lastName">Last Name</Label>
                             <Input id="lastName" {...register("lastName")} />
                             {errors.lastName && (
-                              <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                              <p className="text-sm text-destructive">
+                                {errors.lastName.message}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -349,16 +367,24 @@ export default function UserProfilePage() {
                           <Label htmlFor="username">Username</Label>
                           <Input id="username" {...register("username")} />
                           {errors.username && (
-                            <p className="text-sm text-destructive">{errors.username.message}</p>
+                            <p className="text-sm text-destructive">
+                              {errors.username.message}
+                            </p>
                           )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" {...register("email")} />
+                            <Input
+                              id="email"
+                              type="email"
+                              {...register("email")}
+                            />
                             {errors.email && (
-                              <p className="text-sm text-destructive">{errors.email.message}</p>
+                              <p className="text-sm text-destructive">
+                                {errors.email.message}
+                              </p>
                             )}
                           </div>
 
@@ -366,7 +392,9 @@ export default function UserProfilePage() {
                             <Label htmlFor="phone">Phone</Label>
                             <Input id="phone" {...register("phone")} />
                             {errors.phone && (
-                              <p className="text-sm text-destructive">{errors.phone.message}</p>
+                              <p className="text-sm text-destructive">
+                                {errors.phone.message}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -375,7 +403,9 @@ export default function UserProfilePage() {
                           <Label htmlFor="address">Address</Label>
                           <Input id="address" {...register("address")} />
                           {errors.address && (
-                            <p className="text-sm text-destructive">{errors.address.message}</p>
+                            <p className="text-sm text-destructive">
+                              {errors.address.message}
+                            </p>
                           )}
                         </div>
 
@@ -384,7 +414,9 @@ export default function UserProfilePage() {
                           className="w-full"
                           disabled={updateProfileMutation.isPending}
                         >
-                          {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                          {updateProfileMutation.isPending
+                            ? "Saving..."
+                            : "Save Changes"}
                         </Button>
                       </form>
                     ) : (
@@ -393,7 +425,9 @@ export default function UserProfilePage() {
                           <User className="h-5 w-5 text-muted-foreground" />
                           <div>
                             <p className="font-medium">{displayName}</p>
-                            <p className="text-sm text-muted-foreground">Full Name</p>
+                            <p className="text-sm text-muted-foreground">
+                              Full Name
+                            </p>
                           </div>
                         </div>
                         <Separator />
@@ -401,7 +435,9 @@ export default function UserProfilePage() {
                           <User className="h-5 w-5 text-muted-foreground" />
                           <div>
                             <p className="font-medium">{user.username}</p>
-                            <p className="text-sm text-muted-foreground">Username</p>
+                            <p className="text-sm text-muted-foreground">
+                              Username
+                            </p>
                           </div>
                         </div>
                         <Separator />
@@ -409,23 +445,33 @@ export default function UserProfilePage() {
                           <Mail className="h-5 w-5 text-muted-foreground" />
                           <div>
                             <p className="font-medium">{user.email}</p>
-                            <p className="text-sm text-muted-foreground">Email Address</p>
+                            <p className="text-sm text-muted-foreground">
+                              Email Address
+                            </p>
                           </div>
                         </div>
                         <Separator />
                         <div className="flex items-center gap-3">
                           <Phone className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">{user.phone}</p>
-                            <p className="text-sm text-muted-foreground">Phone Number</p>
+                            <p className="font-medium">
+                              {user.phone || "Phone number not set."}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Phone Number
+                            </p>
                           </div>
                         </div>
                         <Separator />
                         <div className="flex items-center gap-3">
                           <MapPin className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">{user.address}</p>
-                            <p className="text-sm text-muted-foreground">Shipping Address</p>
+                            <p className="font-medium">
+                              {user.address || "Address not set."}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Shipping Address
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -434,14 +480,15 @@ export default function UserProfilePage() {
                 </Card>
               </TabsContent>
 
-              {/* Orders and Saved tabs kept minimal (mock data omitted here for brevity) */}
               <TabsContent value="orders">
                 <Card className="border-border">
                   <CardHeader>
                     <CardTitle>Order History</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-center text-muted-foreground py-8">No orders yet.</p>
+                    <p className="text-center text-muted-foreground py-8">
+                      No orders yet.
+                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -452,7 +499,9 @@ export default function UserProfilePage() {
                     <CardTitle>Saved Items</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-center text-muted-foreground py-8">No saved items.</p>
+                    <p className="text-center text-muted-foreground py-8">
+                      No saved items.
+                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -476,25 +525,46 @@ export default function UserProfilePage() {
               <Lock className="h-5 w-5 mr-2" /> Change Password
             </h2>
 
-            <form onSubmit={handlePasswordSubmit(onSubmitPassword)} className="space-y-4">
+            <form
+              onSubmit={handlePasswordSubmit(onSubmitPassword)}
+              className="space-y-4"
+            >
               <div>
                 <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" {...registerPassword("currentPassword")} />
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  {...registerPassword("currentPassword")}
+                />
                 {passwordErrors.currentPassword && (
-                  <p className="text-sm text-destructive">{passwordErrors.currentPassword.message}</p>
+                  <p className="text-sm text-destructive">
+                    {passwordErrors.currentPassword.message}
+                  </p>
                 )}
               </div>
 
               <div>
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" {...registerPassword("newPassword")} />
+                <Input
+                  id="newPassword"
+                  type="password"
+                  {...registerPassword("newPassword")}
+                />
                 {passwordErrors.newPassword && (
-                  <p className="text-sm text-destructive">{passwordErrors.newPassword.message}</p>
+                  <p className="text-sm text-destructive">
+                    {passwordErrors.newPassword.message}
+                  </p>
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={changePasswordMutation.isPending}>
-                {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={changePasswordMutation.isPending}
+              >
+                {changePasswordMutation.isPending
+                  ? "Updating..."
+                  : "Update Password"}
               </Button>
             </form>
           </div>

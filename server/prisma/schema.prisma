@@ -12,12 +12,14 @@ model User {
   firstName       String   @map("first_name")
   lastName        String   @map("last_name")
   username        String   @unique() @map("username")
-  password        String?   @map("password")
+  password        String   @map("password")
   email           String   @unique() @map("email_address")
   profileImageUrl String?  @map("profile_image_url")
   createdAt       DateTime @default(now()) @map("created_at")
   lastUpdated     DateTime @updatedAt @map("last_updated")
   isDeleted       Boolean  @default(false) @map("is_deleted")
+  phoneNo         String?  @map("phone_no")
+  location        String?  @map("location")   
 
   @@map("users")
 }

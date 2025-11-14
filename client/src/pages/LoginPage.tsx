@@ -53,6 +53,7 @@ export default function LoginPage() {
     },
     onSuccess: (data) => {
       localStorage.setItem("user", JSON.stringify(data.userInfo));
+      localStorage.setItem("authToken", data.token)
       toast.success("Authenticated successfully.");
       navigate("/shop");
     },
@@ -64,7 +65,8 @@ export default function LoginPage() {
       const fieldErrors = result.error.flatten().fieldErrors;
       const newErrors: Record<string, string> = {};
       if (fieldErrors.email?.[0]) newErrors.email = fieldErrors.email[0];
-      if (fieldErrors.password?.[0]) newErrors.password = fieldErrors.password[0];
+      if (fieldErrors.password?.[0])
+        newErrors.password = fieldErrors.password[0];
       setErrors(newErrors);
       return;
     }
@@ -86,7 +88,9 @@ export default function LoginPage() {
       await axiosInstance.post("/api/auth/forgot-password", {
         email: forgotEmail,
       });
-      setForgotSuccess("Password reset instructions have been sent to your email.");
+      setForgotSuccess(
+        "Password reset instructions have been sent to your email."
+      );
       setForgotEmail("");
       setTimeout(() => setShowForgot(false), 4000);
     } catch {
@@ -132,7 +136,9 @@ export default function LoginPage() {
                   }}
                 />
               </div>
-              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email}</p>
+              )}
             </div>
 
             {/* Password */}
@@ -183,48 +189,45 @@ export default function LoginPage() {
 
           <p className="text-sm text-muted-foreground">
             Don’t have an account?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
+            <Link
+              to="/register"
+              className="text-primary font-medium hover:underline"
+            >
               Sign up
             </Link>
           </p>
         </CardFooter>
 
+        {/* --- Forgot Password Modal --- */}
         {showForgot && (
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-20">
-            <div className="relative w-full px-6">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-background rounded-xl shadow-lg w-full max-w-md p-6 relative">
               <button
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
                 onClick={() => setShowForgot(false)}
-                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-5 w-5 text-destructive" />
+                <X className="h-5 w-5" />
               </button>
 
-              <form
-                onSubmit={handleForgotSubmit}
-                className="space-y-4 bg-card p-6 rounded-xl border shadow-md"
-              >
-                <h2 className="text-lg font-semibold text-center">Reset Password</h2>
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <Mail className="h-5 w-5 mr-2" /> Forgot Password
+              </h2>
+
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="forgotEmail">Email</Label>
+                  <Input
+                    id="forgotEmail"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
 
                 {forgotSuccess && (
-                  <p className="text-sm text-green-600 text-center bg-green-50 border border-green-200 rounded-md p-2">
-                    {forgotSuccess}
-                  </p>
+                  <p className="text-sm text-green-600">{forgotSuccess}</p>
                 )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="forgotEmail">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="forgotEmail"
-                      type="email"
-                      placeholder="you@example.com"
-                      className="pl-9"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
 
                 <Button type="submit" className="w-full" disabled={isSending}>
                   {isSending ? "Sending..." : "Send Reset Link"}

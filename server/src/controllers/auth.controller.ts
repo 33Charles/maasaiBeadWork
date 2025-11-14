@@ -7,7 +7,7 @@ const client = new PrismaClient();
 
 export const registerUser = async (req: Request, res: Response) => {
   const { firstName, lastName, email, username, password } = req.body;
-  console.log(req.body)
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -24,7 +24,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
 export const loginUser = async (req: Request, res: Response) => {
   const { identifier, password} = req.body;
-  console.log(req.body)
+
   try {
     const user = await client.user.findFirst({
       where: {
@@ -52,15 +52,16 @@ export const loginUser = async (req: Request, res: Response) => {
       lastUpdated,
       ...userInfo
     } = user;
+    console.log(userInfo)
     const token = jwt.sign(userInfo, process.env.JWT_SECRET!);
-    res.cookie("access_token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 3000,
-    });
+    // res.cookie("access_token", token, {
+    //   httpOnly: true,
+    //   secure: false,
+    //   sameSite: "lax",
+    //   maxAge: 60 * 60 * 3000,
+    // });
 
-    res.status(200).json({ userInfo });
+    res.status(200).json({ userInfo, token });
   } catch (_e) {
     res.status(500).json({ message: "Something went wrong" });
   }
@@ -68,7 +69,6 @@ export const loginUser = async (req: Request, res: Response) => {
 
 export const getUserInfo = async (req: Request, res: Response) => {
   const { id } = req.user as { id: string };
-  console.log(req.user)
 
   try {
     const user = await client.user.findFirst({
@@ -105,7 +105,7 @@ export const updateUserPassword = async (req: Request, res: Response) => {
     if (!isSimilar) {
       res
         .status(400)
-        .json({ message: "You entered a wrong current password." });
+        .json({ message: "Wrong password." });
       return;
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
