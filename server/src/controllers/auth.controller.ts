@@ -7,7 +7,7 @@ const client = new PrismaClient();
 
 export const registerUser = async (req: Request, res: Response) => {
   const { firstName, lastName, email, username, password } = req.body;
-
+  console.log(req.body)
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -23,8 +23,8 @@ export const registerUser = async (req: Request, res: Response) => {
 };
 
 export const loginUser = async (req: Request, res: Response) => {
-  const { identifier, password, rememberMe } = req.body;
-
+  const { identifier, password} = req.body;
+  console.log(req.body)
   try {
     const user = await client.user.findFirst({
       where: {
@@ -50,15 +50,14 @@ export const loginUser = async (req: Request, res: Response) => {
     const {
       password: userPassword,
       lastUpdated,
-      createdAt,
       ...userInfo
     } = user;
     const token = jwt.sign(userInfo, process.env.JWT_SECRET!);
     res.cookie("access_token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: rememberMe ? 1000 * 60 * 60 * 24 * 7 : 1000 * 60 * 60 * 24,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 3000,
     });
 
     res.status(200).json({ userInfo });
@@ -82,7 +81,7 @@ export const getUserInfo = async (req: Request, res: Response) => {
         createdAt,
         ...userInfo
       } = user;
-     
+    
       res.status(200).json({ userInfo });
     }
   } catch {

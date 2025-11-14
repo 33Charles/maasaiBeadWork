@@ -17,7 +17,7 @@ export function Navbar() {
   const user = storedUser ? JSON.parse(storedUser) : null;
 
   const cartCount = 1;
-  const isLoggedIn = true;
+  const isLoggedIn = user;
   const userName = "Amina";
 
   const navItems = [
