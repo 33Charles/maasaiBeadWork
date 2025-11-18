@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.routes";
-//import userRouter from "./routes/user.routes";
+import userRouter from "./routes/user.routes";
 
 
 
@@ -20,7 +20,7 @@ app.use(
 
 
 app.use("/api/auth", authRouter);
-//app.use("/api/user", userRouter);
+app.use("/api/user", userRouter);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

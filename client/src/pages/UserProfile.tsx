@@ -116,39 +116,34 @@ export default function UserProfilePage() {
     mutationFn: (data: ProfileFormData) =>
       axiosInstance.put("/api/user/profile", data),
     onSuccess: (res) => {
-      // If backend returns updated user, prefer that; otherwise update local state from submitted data
       const responseData = (res && (res.data ?? res)) as any;
       const updated = responseData?.user ?? null;
 
       if (updated) {
-        // If backend returns user object
-
         setUser((prev) => ({
           ...prev,
           firstName: updated.firstName ?? prev.firstName,
           lastName: updated.lastName ?? prev.lastName,
-          username: updated.userName ?? prev.username,
+          username: updated.username ?? prev.username,
           email: updated.email ?? prev.email,
           phone: updated.phoneNo ?? prev.phone,
           address: updated.location ?? prev.address,
         }));
-      } else {
-        // fallback: update from form values stored in mutation variables
-        // react-query does not give them here, so just keep UI optimistic by resetting form defaults below
+
+        resetProfileForm({
+          firstName: updated.firstName,
+          lastName: updated.lastName,
+          username: updated.username,
+          email: updated.email,
+          phone: updated.phoneNo,
+          address: updated.location,
+        });
       }
 
       toast.success("Profile updated successfully!");
       setIsEditing(false);
-      // Reset form defaults to reflect updated user
-      resetProfileForm({
-        firstName: updated?.firstName ?? undefined,
-        lastName: updated?.lastName ?? undefined,
-        username: updated?.username ?? undefined,
-        email: updated?.email ?? undefined,
-        phone: updated?.phone ?? undefined,
-        address: updated?.address ?? undefined,
-      });
     },
+
     onError: (_err) => {
       toast.error("Failed to update profile. Try again.");
     },
