@@ -1,4 +1,4 @@
-// client/src/pages/ShoppingCartPage.tsx
+// ShoppingCartPage.tsx — Updated to fetch real cart items
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,9 +7,10 @@ import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import { useToast } from "@/lib/use-toast";
 import { Link } from "react-router-dom";
+import axiosInstance from "@/apis/axios";
 
 interface CartItem {
-  id: number;
+  id: string;
   title: string;
   price: number;
   quantity: number;
@@ -17,24 +18,46 @@ interface CartItem {
   category: string;
 }
 
-// Mock cart (replace with Zustand/Redux later)
-const mockCart: CartItem[] = [
-  { id: 1, title: "Red Warrior Necklace", price: 45, quantity: 2, image: "/bead1.jpg", category: "necklace" },
-  { id: 2, title: "Blue Sky Earrings", price: 28, quantity: 1, image: "/bead2.jpg", category: "earrings" },
-  { id: 3, title: "Tribal Belt", price: 78, quantity: 1, image: "/bead5.jpg", category: "belt" },
-];
-
 export default function ShoppingCartPage() {
   const { toast } = useToast();
-  const [cart, setCart] = useState<CartItem[]>(mockCart);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isClient, setIsClient] = useState(false);
 
-  // Prevent hydration mismatch
+  // Prevent hydration mismatch & fetch cart
   useEffect(() => {
     setIsClient(true);
-  }, []);
 
-  const updateQuantity = (id: number, delta: number) => {
+    const fetchCart = async () => {
+      try {
+        const res = await axiosInstance.get("/api/cart/active", {
+          withCredentials: true,
+        });
+        // console.log(res.data)
+
+        if (res.data.success && res.data.cart?.items) {
+          const formatted = res.data.cart.items.map((item: any) => ({
+            id: item.id,
+            title: item.product.title,
+            price: item.product.price,
+            quantity: item.quantity,
+            image: item.product.images?.[0].url || "",
+            category: item.product.category,
+          }));
+
+          setCart(formatted);
+        } else {
+          setCart([]);
+        }
+      } catch (error) {
+        console.error("Error loading cart", error);
+        setCart([]);
+      }
+    };
+
+    fetchCart();
+  }, []);
+  console.log(cart)
+  const updateQuantity = (id: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) => {
@@ -48,13 +71,13 @@ export default function ShoppingCartPage() {
     );
   };
 
-  const removeItem = (id: number) => {
+  const removeItem = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
     toast.success("Item removed from cart");
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = subtotal * 0.16; // 16% VAT
+  const tax = subtotal * 0.16;
   const total = subtotal + tax;
 
   if (!isClient) return null;
@@ -62,20 +85,17 @@ export default function ShoppingCartPage() {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4 max-w-6xl">
-
-        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-2">Your Cart</h1>
           <p className="text-muted-foreground">Review your Maasai treasures</p>
         </div>
 
         {cart.length === 0 ? (
-          /* Empty State */
           <Card className="border-border">
             <CardContent className="flex flex-col items-center py-16 text-center">
               <ShoppingBag className="h-16 w-16 text-muted-foreground mb-4" />
               <h2 className="text-2xl font-semibold mb-2">Your cart is empty</h2>
-              <p className="text-muted-foreground mb-6">Looks like you haven't added any beadwork yet.</p>
+              <p className="text-muted-foreground mb-6">Browse beadwork to start adding items.</p>
               <Button asChild size="lg">
                 <Link to="/shop">Continue Shopping</Link>
               </Button>
@@ -83,53 +103,36 @@ export default function ShoppingCartPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Cart Items */}
             <div className="lg:col-span-2 space-y-6">
               {cart.map((item) => (
                 <Card key={item.id} className="overflow-hidden border-border">
                   <CardContent className="p-0">
                     <div className="flex gap-4 p-4">
-                      {/* Image */}
-                      <div className="aspect-square w-24 h-24 rounded-lg bg-muted/50 overflow-hidden flex-shrink-0">
-                        <div className="h-full w-full bg-linear-to-br from-primary/10 to-primary/5" />
+                      <div className="aspect-square w-24 h-24 rounded-lg bg-muted/50 overflow-hidden shrink-0">
+                        {item.image ? (
+                          <img src={`http://127.0.0.1:3000${item.image}`} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full bg-primary/10" />
+                        )}
                       </div>
 
-                      {/* Details */}
                       <div className="flex-1">
                         <h3 className="font-semibold text-foreground">{item.title}</h3>
                         <p className="text-sm text-muted-foreground capitalize">{item.category}</p>
                         <p className="text-lg font-bold text-primary mt-1">${item.price}</p>
                       </div>
 
-                      {/* Quantity & Remove */}
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, -1)}
-                        >
+                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(item.id, -1)}>
                           <Minus className="h-4 w-4" />
                         </Button>
-                        <Badge variant="secondary" className="w-10 justify-center">
-                          {item.quantity}
-                        </Badge>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, 1)}
-                        >
+                        <Badge variant="secondary" className="w-10 justify-center">{item.quantity}</Badge>
+                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(item.id, 1)}>
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
 
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                        onClick={() => removeItem(item.id)}
-                      >
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => removeItem(item.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -138,7 +141,6 @@ export default function ShoppingCartPage() {
               ))}
             </div>
 
-            {/* Order Summary */}
             <div className="lg:col-span-1">
               <Card className="sticky top-6 border-border">
                 <CardContent className="p-6 space-y-6">

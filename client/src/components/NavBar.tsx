@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -6,9 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Menu, LogIn, UserPlus, LogOut } from "lucide-react";
 import { useToast } from "@/lib/use-toast";
+import axiosInstance from "@/apis/axios";
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+
   const navigate = useNavigate();
   const location = useLocation();
   const {toast} = useToast()
@@ -16,10 +19,41 @@ export function Navbar() {
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
 
-  const cartCount = 1;
+
   const isLoggedIn = user;
   const userName = user?.username
   
+  const fetchCartCount = async () => {
+  try {
+    const res = await axiosInstance.get("/api/cart/active", {
+      withCredentials: true,
+    });
+
+    if (res.data.success && res.data.cart?.items) {
+      // Sum total quantities of all cart items
+      const count = res.data.cart.items.reduce(
+        (sum: number, item: any) => sum + item.quantity,
+        0
+      );
+
+      return count; 
+    }
+
+    return 0;
+  } catch (error) {
+    console.error("Error loading cart count", error);
+    return 0;
+  }
+};
+
+useEffect(() => {
+  const loadCount = async () => {
+    const count = await fetchCartCount();
+    setCartCount(count);
+  };
+
+  loadCount();
+}, []);
 
   const navItems = [
     { label: "Home", href: "/", highlight: true },

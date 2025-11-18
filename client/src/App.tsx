@@ -12,6 +12,7 @@ import AboutPage from "./pages/About";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import Footer from "./components/Footer";
+import Protected from "./components/Protected";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import './App.css'
@@ -25,13 +26,13 @@ function App() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage/>} />
-          <Route path="/dashboard" element={<ArtisanDashboard/>} />
-          <Route path="/sell" element={<SellProduct/>} />
-          <Route path="/shop" element={<ShopPage/>}/>
-          <Route path="/cart" element={<ShoppingCartPage/>}/>
-          <Route path="/checkout" element={<CheckoutPage/>} />
-          <Route path="/checkout/success" element={<CheckoutSuccess/>} />
-          <Route path="/profile" element={<UserProfilePage/>} />
+          <Route path="/dashboard" element={<Protected><ArtisanDashboard/></Protected>} />
+          <Route path="/sell" element={<Protected><SellProduct/></Protected>} />
+          <Route path="/shop" element={<Protected><ShopPage/></Protected>}/>
+          <Route path="/cart" element={<Protected><ShoppingCartPage/></Protected>}/>
+          <Route path="/checkout" element={<Protected><CheckoutPage/></Protected>} />
+          <Route path="/checkout/success" element={<Protected><CheckoutSuccess/></Protected>} />
+          <Route path="/profile" element={<Protected><UserProfilePage/></Protected>} />
           <Route path="/about" element={<AboutPage/>}/>
           <Route path="/login" element={<LoginPage/>} />
           <Route path="/register" element={<RegisterPage/>} />

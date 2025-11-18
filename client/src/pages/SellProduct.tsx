@@ -14,9 +14,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useToast } from "@/lib/use-toast"; // ← Your custom hook (react-toastify)
+import { useToast } from "@/lib/use-toast"; 
 import { Upload, X, Plus } from "lucide-react";
-import axios from "axios";
+import axiosInstance from "@/apis/axios";
 
 // Zod Schema
 const productSchema = z.object({
@@ -31,7 +31,7 @@ const productSchema = z.object({
 type ProductFormData = z.infer<typeof productSchema>;
 
 export default function SellProduct() {
-  const { toast } = useToast(); // ← react-toastify
+  const { toast } = useToast(); 
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -59,7 +59,7 @@ export default function SellProduct() {
       return;
     }
 
-    const updatedFiles = [...images, ...validFiles].slice(0, 6); // Max 6
+    const updatedFiles = [...images, ...validFiles].slice(0, 6); 
     setImages(updatedFiles);
 
     const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
@@ -86,7 +86,7 @@ export default function SellProduct() {
         formData.append("images", image);
       });
 
-      const response = await axios.post("/api/products", formData, {
+      const response = await axiosInstance.post("/api/products/createProduct", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

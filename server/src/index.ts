@@ -3,7 +3,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.routes";
 import userRouter from "./routes/user.routes";
-
+import productRouter from "./routes/product.routes";
+import cartRouter from "./routes/cart.route";
 
 
 const app = express();
@@ -21,6 +22,9 @@ app.use(
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
+app.use("/api/products", productRouter)
+app.use("/api/cart", cartRouter)
+app.use("/uploads", express.static("uploads"));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
